@@ -30,6 +30,7 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number; rese
 
 // Initialize the Google Cloud Vision client
 let client: ImageAnnotatorClient;
+let clientError: string | null = null;
 
 try {
   // Try to use direct credentials first (better for Vercel)
@@ -39,8 +40,10 @@ try {
       client = new ImageAnnotatorClient({
         credentials: credentials,
       });
+      console.log('Google Cloud Vision client initialized with credentials');
     } catch (parseError) {
-      throw new Error('Invalid GOOGLE_CLOUD_CREDENTIALS format');
+      clientError = `Invalid GOOGLE_CLOUD_CREDENTIALS format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`;
+      console.error('Failed to parse GOOGLE_CLOUD_CREDENTIALS:', parseError);
     }
   } 
   // Fall back to service account key file
@@ -48,12 +51,16 @@ try {
     client = new ImageAnnotatorClient({
       keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE,
     });
+    console.log('Google Cloud Vision client initialized with key file');
   } 
   // Fall back to default credentials (if running on Google Cloud)
   else {
     client = new ImageAnnotatorClient();
+    console.log('Google Cloud Vision client initialized with default credentials');
   }
 } catch (error) {
+  clientError = `Failed to initialize Google Cloud Vision client: ${error instanceof Error ? error.message : 'Unknown error'}`;
+  console.error('Google Cloud Vision initialization error:', error);
   client = null as any;
 }
 
@@ -86,7 +93,10 @@ export async function POST(request: NextRequest) {
   try {
     if (!client) {
       return NextResponse.json(
-        { error: 'Google Cloud Vision not configured. Please set up credentials.' },
+        { 
+          error: clientError || 'Google Cloud Vision not configured. Please set up credentials.',
+          details: 'Check your GOOGLE_CLOUD_CREDENTIALS environment variable format'
+        },
         { status: 500 }
       );
     }
@@ -171,10 +181,31 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    console.error('OCR processing error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to process image.';
+    let errorDetails = 'Unknown error';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('timeout')) {
+        errorMessage = 'OCR request timed out. Please try again.';
+        errorDetails = 'The image processing took too long';
+      } else if (error.message.includes('pattern')) {
+        errorMessage = 'Invalid Google Cloud credentials format.';
+        errorDetails = 'Check your GOOGLE_CLOUD_CREDENTIALS environment variable';
+      } else if (error.message.includes('authentication')) {
+        errorMessage = 'Google Cloud authentication failed.';
+        errorDetails = 'Check your credentials and permissions';
+      } else {
+        errorDetails = error.message;
+      }
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Failed to process image. Please check your Google Cloud Vision setup.',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage,
+        details: errorDetails
       },
       { status: 500 }
     );
