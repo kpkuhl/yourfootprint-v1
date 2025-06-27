@@ -77,9 +77,9 @@ export default function Login() {
             </div>
           </div>
 
-          {error && (
+          {/* {error && (
             <div className="text-red-500 text-sm text-center">{error}</div>
-          )}
+          )} */}
 
           <div>
             <button
