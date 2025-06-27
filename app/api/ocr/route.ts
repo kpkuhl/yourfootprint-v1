@@ -135,8 +135,13 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Perform OCR on the image
-    const [result] = await client.textDetection(imageSource);
+    // Perform OCR on the image with timeout
+    const ocrPromise = client.textDetection(imageSource);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OCR request timed out')), 25000) // 25 second timeout
+    );
+    
+    const [result] = await Promise.race([ocrPromise, timeoutPromise]) as any;
     
     const detections = result.textAnnotations || [];
 
