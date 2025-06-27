@@ -733,6 +733,12 @@ export default function FoodPage() {
       setProcessingOCR(true);
       setError(null);
 
+      // Check file size first
+      if (file.size > 4 * 1024 * 1024) { // 4MB limit
+        setError('Image file is too large. Please use an image smaller than 4MB.');
+        return;
+      }
+
       // Convert file to base64
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -748,28 +754,7 @@ export default function FoodPage() {
       // Compress image if it's too large
       let processedFile = file;
       if (file.size > 1024 * 1024) { // 1MB limit
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
-        });
-
-        const maxSize = 1024;
-        const ratio = Math.min(maxSize / img.width, maxSize / img.height);
-        canvas.width = img.width * ratio;
-        canvas.height = img.height * ratio;
-        
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        canvas.toBlob((blob) => {
-          if (blob) {
-            processedFile = new File([blob], file.name, { type: file.type });
-          }
-        }, file.type, 0.8);
+        processedFile = await compressImage(file, 800); // Use existing compressImage function
       }
 
       // Convert processed file to base64
@@ -803,6 +788,11 @@ export default function FoodPage() {
 
       // Race between fetch and timeout
       const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      
+      if (response.status === 413) {
+        setError('Image is too large for processing. Please try a smaller image (under 1MB).');
+        return;
+      }
       
       const data = await response.json();
 
