@@ -6,7 +6,7 @@ import { useAuth } from './context/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import FootprintForm from './components/FootprintForm';
-import { supabase } from '../utils/supabase';
+import { supabase, hasValidSupabaseConfig } from '../utils/supabase';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -245,6 +245,11 @@ export default function Home() {
         >
           Sign In
         </Link>
+        {!hasValidSupabaseConfig && (
+          <p className="text-yellow-600 text-sm mt-4 text-center max-w-md">
+            ⚠️ Supabase configuration missing. Please add environment variables in Vercel settings.
+          </p>
+        )}
       </div>
     );
   }

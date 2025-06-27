@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../utils/supabase';
+import { supabase, hasValidSupabaseConfig } from '../../utils/supabase';
 import { User } from '@supabase/supabase-js';
 
 type AuthContextType = {
@@ -20,9 +20,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If Supabase is not configured, skip auth
+    if (!hasValidSupabaseConfig) {
+      setLoading(false);
+      return;
+    }
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch((error) => {
+      console.error('Auth session error:', error);
       setLoading(false);
     });
 
@@ -36,7 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (hasValidSupabaseConfig) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
   };
 
