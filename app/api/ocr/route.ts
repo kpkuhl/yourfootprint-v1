@@ -36,14 +36,34 @@ try {
   // Try to use direct credentials first (better for Vercel)
   if (process.env.GOOGLE_CLOUD_CREDENTIALS) {
     try {
+      console.log('GOOGLE_CLOUD_CREDENTIALS length:', process.env.GOOGLE_CLOUD_CREDENTIALS?.length);
+      console.log('GOOGLE_CLOUD_CREDENTIALS starts with:', process.env.GOOGLE_CLOUD_CREDENTIALS?.substring(0, 50));
+      
       const credentials = JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
+      console.log('Credentials parsed successfully, type:', credentials.type);
+      
       client = new ImageAnnotatorClient({
         credentials: credentials,
       });
       console.log('Google Cloud Vision client initialized with credentials');
     } catch (parseError) {
-      clientError = `Invalid GOOGLE_CLOUD_CREDENTIALS format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`;
       console.error('Failed to parse GOOGLE_CLOUD_CREDENTIALS:', parseError);
+      console.error('Credentials content (first 200 chars):', process.env.GOOGLE_CLOUD_CREDENTIALS?.substring(0, 200));
+      
+      // Try alternative approach - maybe the credentials are base64 encoded
+      try {
+        const decodedCredentials = Buffer.from(process.env.GOOGLE_CLOUD_CREDENTIALS, 'base64').toString();
+        const credentials = JSON.parse(decodedCredentials);
+        console.log('Credentials decoded from base64 successfully, type:', credentials.type);
+        
+        client = new ImageAnnotatorClient({
+          credentials: credentials,
+        });
+        console.log('Google Cloud Vision client initialized with base64 decoded credentials');
+      } catch (base64Error) {
+        clientError = `Invalid GOOGLE_CLOUD_CREDENTIALS format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Also failed base64 decode: ${base64Error instanceof Error ? base64Error.message : 'Unknown error'}`;
+        console.error('Failed base64 decode attempt:', base64Error);
+      }
     }
   } 
   // Fall back to service account key file
